@@ -33,6 +33,7 @@ function Navbar() {
           {user?.role !== 'admin' && (
             <>
               <Link to="/agendamento" className="rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800">Agendamento</Link>
+              <Link to="/pedidos" className="rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800">Pedidos</Link>
               <Link to="/retirada" className="rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800">Retirada</Link>
               <Link to="/galeria" className="rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800">Galeria</Link>
             </>

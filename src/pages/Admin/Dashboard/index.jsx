@@ -1,30 +1,58 @@
-import Navbar from "../../../components/Navbar/Navbar";
-import { useAuth } from "../../../AuthContext";
-import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from 'react';
+import Navbar from '../../../components/Navbar/Navbar';
+import { useAuth } from '../../../AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../../services/api';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState([
+    { label: 'Total de Usuários', value: '-', icon: '👥', color: 'blue' },
+    { label: 'Total de Agendamentos', value: '-', icon: '⏳', color: 'yellow' },
+    { label: 'Impressões Pendentes', value: '-', icon: '✓', color: 'green' },
+    { label: 'Laboratórios Ativos', value: '-', icon: '🔧', color: 'purple' },
+  ]);
+  const [recentOrders, setRecentOrders] = useState([]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/home');
+      return;
     }
+
+    const loadDashboard = async () => {
+      try {
+        const dashboardResponse = await apiFetch('/api/dashboard');
+        const printResponse = await apiFetch('/api/prints');
+
+        const { totalUsers, totalBookings, pendingPrints, printingPrints, finishedPrints, totalLaboratories } = dashboardResponse.data;
+
+        setStats([
+          { label: 'Total de Usuários', value: totalUsers, icon: '👥', color: 'blue' },
+          { label: 'Total de Agendamentos', value: totalBookings, icon: '⏳', color: 'yellow' },
+          { label: 'Impressões Pendentes', value: pendingPrints, icon: '✓', color: 'green' },
+          { label: 'Laboratórios Ativos', value: totalLaboratories, icon: '🔧', color: 'purple' },
+        ]);
+
+        setRecentOrders(
+          printResponse.data.printRequests
+            .slice(0, 3)
+            .map((request) => ({
+              id: request._id,
+              user: request.user?.name || 'Usuário',
+              type: request.title,
+              status: request.status,
+              date: new Date(request.createdAt).toLocaleDateString('pt-BR'),
+            }))
+        );
+      } catch (error) {
+        console.error('Falha ao carregar o dashboard:', error);
+      }
+    };
+
+    loadDashboard();
   }, [user, navigate]);
-
-  const stats = [
-    { label: 'Total de Usuários', value: '24', icon: '👥', color: 'blue' },
-    { label: 'Pedidos Pendentes', value: '8', icon: '⏳', color: 'yellow' },
-    { label: 'Impressões Finalizadas', value: '156', icon: '✓', color: 'green' },
-    { label: 'Laboratórios Ativos', value: '2', icon: '🔧', color: 'purple' },
-  ];
-
-  const recentOrders = [
-    { id: 1, user: 'João Silva', type: 'Prototipagem', status: 'Em andamento', date: '20/05/2026' },
-    { id: 2, user: 'Maria Santos', type: 'Educacional', status: 'Pendente', date: '19/05/2026' },
-    { id: 3, user: 'Pedro Costa', type: 'Mecânica', status: 'Concluído', date: '18/05/2026' },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
@@ -78,7 +106,7 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Usuário</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Tipo</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Pedido</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Status</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Data</th>
                   </tr>
@@ -90,9 +118,9 @@ export default function AdminDashboard() {
                       <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{order.type}</td>
                       <td className="px-4 py-4">
                         <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                          order.status === 'Concluído'
+                          order.status === 'finished'
                             ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                            : order.status === 'Em andamento'
+                            : order.status === 'printing'
                             ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
                             : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
                         }`}>

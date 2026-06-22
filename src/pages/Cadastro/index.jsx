@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../AuthContext";
 
 export default function Cadastro() {
-  const { login } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
@@ -12,6 +12,7 @@ export default function Cadastro() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
 
   const validateForm = () => {
     const newErrors = {};
@@ -40,13 +41,28 @@ export default function Cadastro() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setSubmitError("");
 
-    if (validateForm()) {
-      login(name);
-      navigate("/home");
+    if (!validateForm()) {
+      return;
     }
+
+    const result = await register({
+      name,
+      email,
+      password,
+      registration: email,
+      course: 'Aluno',
+    });
+
+    if (!result.success) {
+      setSubmitError(result.message);
+      return;
+    }
+
+    navigate('/home');
   };
 
   return (
@@ -69,6 +85,11 @@ export default function Cadastro() {
 
           <div className="rounded-3xl border border-gray-200 bg-gray-50 p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {submitError && (
+                <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/40 dark:text-red-300">
+                  {submitError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome completo</label>
                 <input

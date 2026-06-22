@@ -1,35 +1,66 @@
-import { useState } from 'react';
-import Navbar from "../../../components/Navbar/Navbar";
-import { useAuth } from "../../../AuthContext";
-import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from 'react';
+import Navbar from '../../../components/Navbar/Navbar';
+import { useAuth } from '../../../AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../../services/api';
+
+const normalizeStatus = (status) => (status === 'active' || status === 'Ativo' ? 'Ativo' : 'Inativo');
+const toApiStatus = (status) => (status === 'Ativo' ? 'active' : 'inactive');
 
 export default function AdminUsuarios() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Luan Penha', email: 'teste@teste.com', role: 'user', status: 'Ativo', joinDate: '15/01/2026' },
-    { id: 2, name: 'Admin System', email: 'admin@teste.com', role: 'admin', status: 'Ativo', joinDate: '01/01/2026' },
-    { id: 3, name: 'João Silva', email: 'joao@example.com', role: 'user', status: 'Ativo', joinDate: '20/03/2026' },
-    { id: 4, name: 'Maria Santos', email: 'maria@example.com', role: 'user', status: 'Inativo', joinDate: '10/02/2026' },
-  ]);
+  const [users, setUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', role: 'user', status: 'Ativo' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', course: '', registration: '', role: 'user', status: 'Ativo' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [modalError, setModalError] = useState('');
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/home');
+      return;
     }
+
+    const loadUsers = async () => {
+      try {
+        const response = await apiFetch('/api/users');
+        setUsers(response.data.users.map((userRecord) => ({
+          id: userRecord._id,
+          name: userRecord.name,
+          email: userRecord.email,
+          role: userRecord.role,
+          status: normalizeStatus(userRecord.status),
+          joinDate: new Date(userRecord.createdAt).toLocaleDateString('pt-BR'),
+        })));
+      } catch (fetchError) {
+        setError(fetchError.message || 'Falha ao carregar usuários');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
   }, [user, navigate]);
 
   const openModal = (existingUser = null) => {
+    setModalError('');
     if (existingUser) {
       setEditingUser(existingUser);
-      setFormData({ name: existingUser.name, email: existingUser.email, role: existingUser.role, status: existingUser.status });
+      setFormData({
+        name: existingUser.name,
+        email: existingUser.email,
+        password: '',
+        course: '',
+        registration: '',
+        role: existingUser.role,
+        status: existingUser.status,
+      });
     } else {
       setEditingUser(null);
-      setFormData({ name: '', email: '', role: 'user', status: 'Ativo' });
+      setFormData({ name: '', email: '', password: '', course: '', registration: '', role: 'user', status: 'Ativo' });
     }
     setShowModal(true);
   };
@@ -37,22 +68,99 @@ export default function AdminUsuarios() {
   const closeModal = () => {
     setShowModal(false);
     setEditingUser(null);
-    setFormData({ name: '', email: '', role: 'user', status: 'Ativo' });
+    setFormData({ name: '', email: '', password: '', course: '', registration: '', role: 'user', status: 'Ativo' });
+    setModalError('');
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (editingUser) {
-      setUsers(users.map(u => u.id === editingUser.id ? { ...editingUser, ...formData } : u));
-    } else {
-      setUsers([...users, { id: users.length + 1, ...formData, joinDate: new Date().toLocaleDateString('pt-BR') }]);
+  const loadUsers = async () => {
+    try {
+      const response = await apiFetch('/api/users');
+      setUsers(response.data.users.map((userRecord) => ({
+        id: userRecord._id,
+        name: userRecord.name,
+        email: userRecord.email,
+        role: userRecord.role,
+        status: normalizeStatus(userRecord.status),
+        joinDate: new Date(userRecord.createdAt).toLocaleDateString('pt-BR'),
+      })));
+    } catch (fetchError) {
+      setError(fetchError.message || 'Falha ao carregar usuários');
     }
-    closeModal();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Tem certeza que deseja deletar este usuário?')) {
-      setUsers(users.filter(u => u.id !== id));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setModalError('');
+
+    if (!formData.name || !formData.email) {
+      setModalError('Nome e e-mail são obrigatórios');
+      return;
+    }
+
+    try {
+      if (editingUser) {
+        const response = await apiFetch(`/api/users/${editingUser.id}`, {
+          method: 'PUT',
+          body: {
+            name: formData.name,
+            email: formData.email,
+            course: formData.course,
+            registration: formData.registration,
+            role: formData.role,
+            status: toApiStatus(formData.status),
+            ...(formData.password ? { password: formData.password } : {}),
+          },
+        });
+
+        setUsers(users.map((u) => (u.id === editingUser.id ? {
+          ...u,
+          name: response.data.user.name,
+          email: response.data.user.email,
+          role: response.data.user.role,
+          status: normalizeStatus(response.data.user.status),
+        } : u)));
+      } else {
+        const registerResponse = await apiFetch('/api/auth/register', {
+          method: 'POST',
+          body: {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password || 'Senha123',
+            registration: formData.registration || formData.email,
+            course: formData.course || 'Aluno',
+          },
+          auth: false,
+        });
+
+        const createdUser = registerResponse.data.user;
+        if (formData.role !== 'user' || formData.status !== 'Ativo') {
+          await apiFetch(`/api/users/${createdUser._id}`, {
+            method: 'PUT',
+            body: {
+              role: formData.role,
+              status: toApiStatus(formData.status),
+            },
+          });
+        }
+
+        await loadUsers();
+      }
+      closeModal();
+    } catch (submitError) {
+      setModalError(submitError.message || 'Falha ao salvar o usuário');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Tem certeza que deseja deletar este usuário?')) {
+      return;
+    }
+
+    try {
+      await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+      setUsers(users.filter((u) => u.id !== id));
+    } catch (deleteError) {
+      setError(deleteError.message || 'Falha ao deletar usuário');
     }
   };
 
@@ -76,6 +184,12 @@ export default function AdminUsuarios() {
               + Novo usuário
             </button>
           </div>
+
+          {error && (
+            <div className="mb-6 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-200">
+              {error}
+            </div>
+          )}
 
           <div className="overflow-x-auto rounded-3xl border border-gray-200 dark:border-gray-700">
             <table className="w-full">
@@ -152,6 +266,11 @@ export default function AdminUsuarios() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {modalError && (
+                <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/40 dark:text-red-300">
+                  {modalError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome</label>
                 <input
@@ -169,6 +288,34 @@ export default function AdminUsuarios() {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="mt-2 w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Senha</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="mt-2 w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder={editingUser ? 'Deixe em branco para manter' : '••••••••'}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Curso</label>
+                <input
+                  type="text"
+                  value={formData.course}
+                  onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+                  className="mt-2 w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Matrícula</label>
+                <input
+                  type="text"
+                  value={formData.registration}
+                  onChange={(e) => setFormData({ ...formData, registration: e.target.value })}
                   className="mt-2 w-full rounded-3xl border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>

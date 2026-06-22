@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/Admin/dashboard";
 import AdminPedidos from "./pages/Admin/pedidos";
 import AdminUsuarios from "./pages/Admin/usuarios";
 import AdminAgendamentos from "./pages/Admin/Agendamentos";
+import Pedidos from "./pages/Pedidos";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/galeria" element={<Galeria />} />
         <Route path="/retirada" element={<Retirada />} />
         <Route path="/retirada/marcar" element={<MarcarRetirada />} />
+        <Route path="/pedidos" element={<Pedidos />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/pedidos" element={<AdminPedidos />} />
         <Route path="/admin/usuarios" element={<AdminUsuarios />} />

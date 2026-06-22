@@ -1,55 +1,70 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { apiFetch, clearAuth, getAuthToken, getAuthUser, setAuthToken, setAuthUser } from './services/api';
 
 const AuthContext = createContext(null);
 
-const testUsers = {
-  admin: {
-    name: 'Admin System',
-    email: 'admin@teste.com',
-    password: 'Admin123',
-    role: 'admin',
-  },
-  user: {
-    name: 'Luan Penha',
-    email: 'teste@teste.com',
-    password: 'Senha123',
-    role: 'user',
-  },
-};
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (payload) => {
-    if (typeof payload === 'string') {
-      setUser({ name: payload, role: 'user' });
+  useEffect(() => {
+    const storedToken = getAuthToken();
+    const storedUser = getAuthUser();
+
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      setUser(storedUser);
+    }
+    setLoading(false);
+  }, []);
+
+  const login = async (payload) => {
+    try {
+      const response = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: payload,
+        auth: false,
+      });
+
+      const { token: accessToken, user: authenticatedUser } = response.data;
+      setToken(accessToken);
+      setUser(authenticatedUser);
+      setAuthToken(accessToken);
+      setAuthUser(authenticatedUser);
       return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message || 'Falha ao autenticar.' };
     }
+  };
 
-    if (payload?.email && payload?.password) {
-      const adminMatch = payload.email === testUsers.admin.email && payload.password === testUsers.admin.password;
-      const userMatch = payload.email === testUsers.user.email && payload.password === testUsers.user.password;
+  const register = async (payload) => {
+    try {
+      const response = await apiFetch('/api/auth/register', {
+        method: 'POST',
+        body: payload,
+        auth: false,
+      });
 
-      if (adminMatch) {
-        setUser(testUsers.admin);
-        return { success: true };
-      }
-      if (userMatch) {
-        setUser(testUsers.user);
-        return { success: true };
-      }
-      return { success: false, message: 'E-mail ou senha inválidos.' };
+      const { token: accessToken, user: registeredUser } = response.data;
+      setToken(accessToken);
+      setUser(registeredUser);
+      setAuthToken(accessToken);
+      setAuthUser(registeredUser);
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message || 'Falha ao registrar.' };
     }
-
-    return { success: false, message: 'Credenciais incompletas.' };
   };
 
   const logout = () => {
     setUser(null);
+    setToken(null);
+    clearAuth();
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

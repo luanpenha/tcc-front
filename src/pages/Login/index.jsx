@@ -13,11 +13,11 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSubmitted, setResetSubmitted] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const result = login({ email, password });
+    const result = await login({ email, password });
     if (result.success) {
-      navigate("/home");
+      navigate('/home');
       return;
     }
     setErrorMessage(result.message);
@@ -25,7 +25,7 @@ export default function Login() {
 
   const handleLogout = () => {
     logout();
-    navigate("/");
+    navigate('/');
   };
 
   const handleForgotPassword = (event) => {
